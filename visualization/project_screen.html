@@ -1,0 +1,425 @@
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>ORIGEN Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Schibsted+Grotesk:wght@600;800&display=swap">
+<style>
+/* Layout: lab-instrument project screen. Header + five tabs, content in cards on a cool grey ground.
+   Mountain/valley use the origami convention (red dash-dot / violet dashed) and are separate from chart series colors. */
+:root{
+  --bg:#eef0f4; --surface:#fcfcfb; --paper:#ffffff; --ink:#0f1419; --ink2:#454d5a; --ink3:#69727f; --line:#d9dde4; --soft:#f2f4f7;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --m:#d83a39; --v:#5b49d0;
+  --good:#17703f; --good-bg:#e1f3e8; --bad:#b3302b; --bad-bg:#fbe6e4; --warn:#8a5a00; --warn-bg:#fcf0d4;
+  --display:"Schibsted Grotesk","Helvetica Neue",Arial,sans-serif; --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#101114; --surface:#1a1a19; --paper:#232322; --ink:#f0efec; --ink2:#c3c2b7; --ink3:#9a998f; --line:#303133; --soft:#202122;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --m:#e66767; --v:#9085e9;
+  --good:#6fd39a; --good-bg:#183324; --bad:#f08a85; --bad-bg:#3a1f1e; --warn:#e6b85a; --warn-bg:#3a2e12; color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#101114; --surface:#1a1a19; --paper:#232322; --ink:#f0efec; --ink2:#c3c2b7; --ink3:#9a998f; --line:#303133; --soft:#202122;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --m:#e66767; --v:#9085e9;
+  --good:#6fd39a; --good-bg:#183324; --bad:#f08a85; --bad-bg:#3a1f1e; --warn:#e6b85a; --warn-bg:#3a2e12; color-scheme:dark;}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:400 14px/1.55 var(--body);padding-block:0 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1120px;margin:0 auto}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+h1{font-size:clamp(26px,4.4vw,38px);font-weight:800;line-height:1.05}
+h2{font-size:19px;font-weight:800;line-height:1.2}
+h3{font-size:14px;font-weight:600}
+p{margin:0}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--ink2)} .faint{color:var(--ink3)}
+.eyebrow{font:500 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
+
+header{padding-block:22px 14px;display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between}
+header .sub{max-width:62ch;margin-top:8px;color:var(--ink2)}
+.badges{display:flex;gap:8px;flex-wrap:wrap}
+.badge{font:500 12px/1 var(--mono);padding:7px 10px;border-radius:4px;background:var(--soft);color:var(--ink2);border:1px solid var(--line)}
+.badge.ok{background:var(--good-bg);color:var(--good);border-color:transparent}
+.badge.warn{background:var(--warn-bg);color:var(--warn);border-color:transparent}
+
+nav{display:flex;gap:2px;overflow-x:auto;border-bottom:1px solid var(--line);margin-bottom:18px;scrollbar-width:thin}
+nav button{font:600 13px/1 var(--body);color:var(--ink2);background:none;border:0;border-bottom:2px solid transparent;padding:12px 14px;cursor:pointer;white-space:nowrap}
+nav button:hover{color:var(--ink)}
+nav button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--s1)}
+:focus-visible{outline:2px solid var(--s1);outline-offset:2px}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;min-width:0}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr))}
+.stack{display:flex;flex-direction:column;gap:14px}
+.card h2+p,.card h3+p{margin-top:6px}
+.note{font-size:12.5px;color:var(--ink2);border-left:3px solid var(--line);padding:2px 0 2px 10px}
+.callout{background:var(--warn-bg);color:var(--ink);border-radius:6px;padding:12px 14px;font-size:13px}
+.callout b{color:var(--warn)}
+
+.tile .big{font:800 34px/1.05 var(--display);letter-spacing:-.02em;margin:8px 0 6px;font-variant-numeric:tabular-nums}
+.tile .lbl{font-size:12.5px;color:var(--ink2)}
+
+/* pipeline */
+.pipe{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch;margin-top:12px}
+.step{flex:1 1 150px;background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:10px 12px;position:relative;min-width:0}
+.step b{display:block;font:600 13px/1.25 var(--body)}
+.step span{display:block;font-size:12px;color:var(--ink2);margin-top:3px}
+.tag{display:inline-block;font:500 10.5px/1 var(--mono);padding:3px 6px;border-radius:3px;margin-top:7px;background:var(--surface);border:1px solid var(--line);color:var(--ink2)}
+.tag.exact{color:var(--good);border-color:var(--good)} .tag.approx{color:var(--warn);border-color:var(--warn)}
+
+/* crease svgs */
+svg.cp{display:block;width:100%;height:auto;max-width:100%}
+.paper{fill:var(--paper);stroke:var(--ink3);stroke-width:.6}
+.cr{fill:none;stroke-width:1.15;stroke-linecap:round}
+.cr.M{stroke:var(--m);stroke-dasharray:4 1.3 1 1.3} .cr.V{stroke:var(--v);stroke-dasharray:3 2} .cr.B{stroke:var(--ink3)}
+.vt{fill:var(--ink)}
+.key{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink2);align-items:center}
+.key i{display:inline-block;width:26px;height:0;border-top:2px solid;vertical-align:middle;margin-right:6px}
+.key i.m{border-color:var(--m);border-top-style:dashed} .key i.v{border-color:var(--v);border-top-style:dotted}
+
+/* funnel + bars */
+.row{display:grid;grid-template-columns:minmax(96px,170px) 1fr auto;gap:10px;align-items:center;margin:7px 0;font-size:12.5px}
+.track{height:14px;background:var(--soft);border-radius:2px;overflow:hidden}
+.fill{height:100%;border-radius:0 4px 4px 0}
+.row .v{font:500 12px var(--mono);min-width:66px;text-align:right}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font:500 12px/1 var(--body);padding:7px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px}
+.thumb{background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:6px;cursor:pointer;text-align:left;color:var(--ink);font:inherit}
+.thumb[aria-pressed="true"]{border-color:var(--s1);box-shadow:0 0 0 1px var(--s1)}
+.thumb .st{font:500 10.5px/1.2 var(--mono);margin-top:5px;display:block}
+.st.pass{color:var(--good)} .st.fail{color:var(--bad)}
+.pill{display:inline-flex;gap:6px;align-items:center;font:500 11.5px/1 var(--mono);padding:6px 8px;border-radius:4px}
+.pill.pass{background:var(--good-bg);color:var(--good)} .pill.fail{background:var(--bad-bg);color:var(--bad)} .pill.na{background:var(--soft);color:var(--ink2)}
+
+/* tables */
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font:500 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)}
+td{font-variant-numeric:tabular-nums}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:7px;vertical-align:-1px}
+
+/* charts */
+.chart{position:relative;height:270px;width:100%}
+.chart svg{display:block;width:100%;height:100%}
+.ax text{font:11px var(--mono);fill:var(--ink3)}
+.ax line,.grid line{stroke:var(--line);stroke-width:1}
+.lg{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--ink2);margin:6px 0 2px}
+.lg i{display:inline-block;width:18px;height:0;border-top:3px solid;margin-right:6px;vertical-align:middle}
+#tip{position:fixed;z-index:50;pointer-events:none;background:var(--ink);color:var(--surface);padding:8px 10px;border-radius:5px;font:12px/1.45 var(--mono);display:none;max-width:260px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+
+/* 3d */
+canvas#c3d{width:100%;height:320px;display:block;background:var(--soft);border-radius:5px;touch-action:none;cursor:grab}
+input[type=range]{width:100%;accent-color:var(--s1)}
+input[type=number]{width:78px;font:500 13px var(--mono);padding:7px 8px;border:1px solid var(--line);border-radius:4px;background:var(--surface);color:var(--ink)}
+.btns{display:flex;gap:6px;flex-wrap:wrap}
+.btn{font:600 12px/1 var(--body);padding:8px 11px;border-radius:4px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.btn[aria-pressed="true"]{background:var(--s1);color:#fff;border-color:var(--s1)}
+code,pre{font-family:var(--mono);font-size:12px}
+pre{background:var(--soft);padding:12px;border-radius:5px;overflow-x:auto;margin:8px 0 0}
+ul.clean{margin:8px 0 0;padding-left:18px} ul.clean li{margin:4px 0}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:12.5px;margin-top:8px}
+.kv dt{color:var(--ink3);font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.05em;padding-top:2px} .kv dd{margin:0;font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:no-preference){.fill{transition:width .25s}}
+</style>
+
+<div class="wrap">
+<header>
+  <div>
+    <div class="eyebrow">Research prototype · inverse origami design</div>
+    <h1 style="margin-top:10px">ORIGEN</h1>
+    <p class="sub">Topology-constrained search for crease patterns. Candidate patterns are filtered with Maekawa, Kawasaki, graph and geometry checks before the costly fold evaluation runs.</p>
+  </div>
+  <div class="badges" id="badges"></div>
+</header>
+<nav role="tablist" id="tabs"></nav>
+<main id="view"></main>
+</div>
+<div id="tip"></div>
+
+<script>
+const D = __DATA__;
+const $=(s,r=document)=>r.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const TNAME={flat_sheet:'Flat sheet',cylinder:'Cylinder',curved_dome:'Curved dome'};
+const METHODS=[['origen','ORIGEN (constrained)','--s1',''],['baseline_guided','Baseline: shape-guided, unfiltered','--s2',''],['baseline_eval_then_reject','Control: evaluate, then reject','--s3','5 4']];
+const TARGETS=D.parameters.targets;
+const S={tab:'overview',target:'curved_dome',filter:'all',cand:null,fold:null,yaw:-0.7,pitch:1.0};
+const cv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const f=(x,n=2)=>Number(x).toFixed(n);
+const mean=a=>a.reduce((s,x)=>s+x,0)/a.length;
+
+/* ---------- tooltip ---------- */
+const tip=$('#tip');
+function showTip(html,e){tip.innerHTML=html;tip.style.display='block';const w=tip.offsetWidth,h=tip.offsetHeight;let x=e.clientX+14,y=e.clientY+14;if(x+w>innerWidth-8)x=e.clientX-w-14;if(y+h>innerHeight-8)y=e.clientY-h-14;tip.style.left=Math.max(8,x)+'px';tip.style.top=Math.max(8,y)+'px';}
+function hideTip(){tip.style.display='none'}
+
+/* ---------- crease plot ---------- */
+function creaseSVG(p,label){
+  const S0=p.paper_size,V=p.vertices,xs=[0,S0],ys=[0,S0];
+  Object.values(V).forEach(([x,y])=>{xs.push(x);ys.push(y)});
+  const x0=Math.min(...xs)-3,x1=Math.max(...xs)+3,y0=Math.min(...ys)-3,y1=Math.max(...ys)+3;
+  const w=x1-x0,h=y1-y0,deg={};
+  let lines='';
+  for(const [u,v,a] of p.creases){deg[u]=(deg[u]||0)+1;deg[v]=(deg[v]||0)+1;
+    const A=V[u],B=V[v];
+    lines+=`<line class="cr ${a}" x1="${A[0]}" y1="${y1+y0-A[1]}" x2="${B[0]}" y2="${y1+y0-B[1]}"/>`;}
+  let dots='';
+  for(const k in deg){if(deg[k]>=3){const [x,y]=V[k];dots+=`<circle class="vt" cx="${x}" cy="${y1+y0-y}" r="1.7"/>`}}
+  return `<svg class="cp" viewBox="${x0} ${y0} ${w} ${h}" role="img" aria-label="${esc(label||'Crease pattern')}"><rect class="paper" x="0" y="${y0+y1-S0}" width="${S0}" height="${S0}"/>${lines}${dots}</svg>`;
+}
+const keyHTML=`<div class="key"><span><i class="m"></i>Mountain</span><span><i class="v"></i>Valley</span><span><svg width="10" height="10"><circle cx="5" cy="5" r="3.5" class="vt"/></svg>&nbsp;Vertex (degree ≥ 3)</span></div>`;
+
+/* ---------- line chart with hover ---------- */
+function niceTicks(a,b,n){const step0=(b-a)/n,mag=Math.pow(10,Math.floor(Math.log10(step0))),r=step0/mag,step=(r<1.5?1:r<3?2:r<7?5:10)*mag;const out=[];for(let t=Math.ceil(a/step)*step;t<=b+1e-9;t+=step)out.push(+t.toFixed(10));return out}
+function lineChart(host,o){
+  const draw=()=>{
+    const W=Math.max(host.clientWidth,260),H=270,m={l:48,r:o.endLabels?96:14,t:10,b:38},iw=W-m.l-m.r,ih=H-m.t-m.b;
+    let ymin=1e9,ymax=-1e9,xmax=0;
+    o.series.forEach(s=>{s.y.forEach(v=>{ymin=Math.min(ymin,v);ymax=Math.max(ymax,v)});xmax=Math.max(xmax,s.x[s.x.length-1])});
+    const pad=(ymax-ymin)*.1||.01;ymin=Math.max(0,ymin-pad);ymax+=pad;
+    const sx=x=>m.l+x/xmax*iw,sy=y=>m.t+ih-(y-ymin)/(ymax-ymin)*ih;
+    const yt=niceTicks(ymin,ymax,4),xt=niceTicks(0,xmax,5);
+    let g='';
+    yt.forEach(t=>{g+=`<line x1="${m.l}" x2="${W-m.r}" y1="${sy(t)}" y2="${sy(t)}"/><text x="${m.l-8}" y="${sy(t)+4}" text-anchor="end">${f(t,t<1?2:0)}</text>`});
+    let xa='';xt.forEach(t=>{xa+=`<text x="${sx(t)}" y="${H-m.b+16}" text-anchor="middle">${t}</text>`});
+    let paths='',labs=[];
+    o.series.forEach(s=>{
+      const d=s.x.map((x,i)=>`${i?'L':'M'}${sx(x).toFixed(1)} ${sy(s.y[i]).toFixed(1)}`).join('');
+      paths+=`<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${s.dash?2:2.4}" ${s.dash?`stroke-dasharray="${s.dash}"`:''} stroke-linejoin="round"/>`;
+      labs.push({y:sy(s.y[s.y.length-1]),t:s.short,c:s.color});
+    });
+    let lab='';
+    if(o.endLabels){labs.sort((a,b)=>a.y-b.y);for(let i=1;i<labs.length;i++)if(labs[i].y-labs[i-1].y<14)labs[i].y=labs[i-1].y+14;
+      labs.forEach(l=>{lab+=`<text x="${W-m.r+8}" y="${l.y+4}" style="font:600 11px var(--body);fill:var(--ink2)"><tspan fill="${l.c}">●</tspan> ${esc(l.t)}</text>`})}
+    host.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.aria)}"><g class="grid">${g.replace(/<text[^>]*>.*?<\/text>/g,'')}</g><g class="ax">${g.replace(/<line[^>]*\/>/g,'')}${xa}<line x1="${m.l}" x2="${W-m.r}" y1="${H-m.b}" y2="${H-m.b}"/><text x="${m.l+iw/2}" y="${H-4}" text-anchor="middle">${esc(o.xlabel)}</text><text transform="translate(12 ${m.t+ih/2}) rotate(-90)" text-anchor="middle">${esc(o.ylabel)}</text></g>${paths}${lab}<g id="hv" style="display:none"><line y1="${m.t}" y2="${H-m.b}" stroke="var(--ink3)" stroke-dasharray="3 3"/></g><rect x="${m.l}" y="${m.t}" width="${iw}" height="${ih}" fill="transparent" id="hit"/></svg>`;
+    const hit=$('#hit',host),hv=$('#hv',host),svg=$('svg',host);
+    const move=e=>{const r=svg.getBoundingClientRect(),px=(e.clientX-r.left)*W/r.width,xv=Math.min(xmax,Math.max(0,(px-m.l)/iw*xmax));
+      let rows='',dots='';
+      o.series.forEach(s=>{let j=0,best=1e9;for(let i=0;i<s.x.length;i++){const d=Math.abs(s.x[i]-xv);if(d<best){best=d;j=i}}
+        rows+=`<div><span style="color:${s.color}">●</span> ${esc(s.short)}: ${f(s.y[j],4)} @ ${o.xname} ${f(s.x[j],o.xdec||0)}</div>`;
+        dots+=`<circle cx="${sx(s.x[j])}" cy="${sy(s.y[j])}" r="4" fill="${s.color}" stroke="var(--surface)" stroke-width="2"/>`});
+      hv.style.display='';hv.innerHTML=`<line x1="${sx(xv)}" x2="${sx(xv)}" y1="${m.t}" y2="${H-m.b}" stroke="var(--ink3)" stroke-dasharray="3 3"/>${dots}`;
+      showTip(rows,e)};
+    hit.addEventListener('pointermove',move);hit.addEventListener('pointerleave',()=>{hv.style.display='none';hideTip()});
+  };
+  draw();
+  if(host._ro)host._ro.disconnect();
+  let lw=host.clientWidth;host._ro=new ResizeObserver(()=>{if(Math.abs(host.clientWidth-lw)>1){lw=host.clientWidth;draw()}});host._ro.observe(host);
+}
+
+/* ---------- derived numbers (all from recorded data) ---------- */
+const A=(t,m)=>D.experiment[t][m].aggregate;
+const avgOver=(m,k)=>mean(TARGETS.map(t=>A(t,m)[k].mean));
+function headline(){
+  const o=k=>avgOver('origen',k),g=k=>avgOver('baseline_guided',k);
+  let better=0,tie=0,worse=0;TARGETS.forEach(t=>{const p=D.experiment[t].paired_vs_guided;better+=p.origen_better;tie+=p.tie;worse+=p.origen_worse});
+  return {evals:1-o('n_shape_evaluations')/g('n_shape_evaluations'),runtime:1-o('runtime_s')/g('runtime_s'),
+    vdO:o('valid_discovery_rate'),vdG:g('valid_discovery_rate'),simO:o('best_similarity'),simG:g('best_similarity'),better,tie,worse,
+    avoidO:o('invalid_avoided_pct'),avoidG:g('invalid_avoided_pct')};
+}
+
+/* ---------- views ---------- */
+const TABS=[['overview','Overview'],['candidates','Candidate filtering'],['designs','Best designs'],['experiment','Experiment'],['method','Method & limits']];
+function targetPicker(){return `<div class="chips" role="group" aria-label="Target shape">${TARGETS.map(t=>`<button class="chip" data-t="${t}" aria-pressed="${t===S.target}">${TNAME[t]}</button>`).join('')}</div>`}
+function bindTargetPicker(){document.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{S.target=b.dataset.t;S.fold=null;render()})}
+
+function vOverview(){
+  const h=headline(),P=D.parameters;
+  const verdictQ=Math.abs(h.simO-h.simG)<0.005?'about equal':(h.simO>h.simG?'slightly higher for ORIGEN':'slightly higher for the baseline');
+  return `
+  <div class="stack">
+  <section class="card"><div class="eyebrow">Pipeline</div><h2 style="margin-top:8px">From a target shape to a candidate crease pattern</h2>
+    <div class="pipe">
+      <div class="step"><b>1 · Target shape</b><span>Flat sheet, cylinder or dome point cloud</span><span class="tag">implemented</span></div>
+      <div class="step"><b>2 · Candidate generator</b><span>Single-hub star patterns, valid and deliberately invalid</span><span class="tag">implemented</span></div>
+      <div class="step"><b>3 · Crease graph</b><span>NetworkX graph: vertices, creases, M/V labels, sector angles</span><span class="tag">implemented</span></div>
+      <div class="step"><b>4 · Constraint engine</b><span>Topology → geometry → Maekawa → Kawasaki, first failure stops</span><span class="tag exact">necessary conditions</span></div>
+      <div class="step"><b>5 · Fold evaluation</b><span>Umbrella-style rod model + Chamfer distance, survivors only</span><span class="tag approx">simplified approximation</span></div>
+      <div class="step"><b>6 · Stochastic search</b><span>Simulated-annealing style moves over the pattern</span><span class="tag">implemented</span></div>
+    </div></section>
+
+  <div class="grid g3">
+    <div class="card tile"><div class="eyebrow">Shape evaluations</div><div class="big">${f(h.evals*100,0)}% fewer</div><div class="lbl">ORIGEN vs the shape-guided baseline, mean over 3 targets × ${P.n_trials} trials × ${P.n_iterations} iterations.</div></div>
+    <div class="card tile"><div class="eyebrow">Run time</div><div class="big">${f(h.runtime*100,0)}% lower</div><div class="lbl">Wall-clock per search on this machine. Fold evaluation here is cheap, so a heavier simulator would widen this gap.</div></div>
+    <div class="card tile"><div class="eyebrow">Candidates passing all checks</div><div class="big">${f(h.vdO*100,0)}% vs ${f(h.vdG*100,0)}%</div><div class="lbl">Share of generated candidates that satisfied every constraint (ORIGEN vs guided baseline).</div></div>
+  </div>
+
+  <section class="card"><div class="eyebrow">What the experiment does and does not show</div>
+    <h2 style="margin-top:8px">Hypothesis check</h2>
+    <p class="muted" style="margin-top:8px"><b>Less wasted exploration: supported in this run.</b> ORIGEN sent ${f(avgOver('origen','invalid_sent_to_simulation'),0)} invalid candidates per run to fold evaluation, the baselines sent ${f(avgOver('baseline_guided','invalid_sent_to_simulation'),0)}.</p>
+    <p class="muted" style="margin-top:8px"><b>Better convergence: not shown.</b> Final best-match similarity is ${verdictQ} (ORIGEN ${f(h.simO,3)}, baseline ${f(h.simG,3)}). Across ${h.better+h.tie+h.worse} paired runs ORIGEN scored higher in ${h.better}, tied in ${h.tie} and lower in ${h.worse}. No significance test was run.</p>
+    <p class="note" style="margin-top:12px">Both claims describe this simplified fold model and these seeds only. They say nothing about physical foldability.</p>
+  </section>
+  <div class="callout"><b>Necessary, not sufficient.</b> A pattern that passes Maekawa and Kawasaki satisfies two necessary local conditions. It has not been proven to fold flat or to fold without self-intersection.</div>
+  </div>`;
+}
+
+function vCandidates(){
+  const P=D.population_demo,c=P.counts,n=P.n;
+  const stages=[['Generated',n,null],['Pass topology',n-c.topology,c.topology],['Pass geometry',n-c.topology-c.geometry,c.geometry],['Pass Maekawa',n-c.topology-c.geometry-c.maekawa,c.maekawa],['Pass Kawasaki',c.passed,c.kawasaki]];
+  const fun=stages.map(([l,v,r],i)=>`<div class="row"><span>${l}</span><div class="track"><div class="fill" style="width:${v/n*100}%;background:var(--s1)"></div></div><span class="v">${v}${r?` <span class="faint">−${r}</span>`:''}</span></div>`).join('');
+  const sm=P.samples,flt=S.filter;
+  const vis=sm.map((s,i)=>({s,i})).filter(({s})=>flt==='all'||(flt==='pass'?s.passed:(!s.passed&&(flt==='rej'||s.stage===flt))));
+  if(S.cand===null||!vis.some(v=>v.i===S.cand))S.cand=vis.length?vis[0].i:null;
+  const sel=S.cand!==null?sm[S.cand]:null;
+  const fl=[['all','All'],['pass','Passed'],['rej','Rejected'],['topology','Topology'],['maekawa','Maekawa'],['kawasaki','Kawasaki']];
+  return `<div class="stack">
+  <section class="card"><div class="eyebrow">Constraint engine on ${n} generated candidates</div>
+    <h2 style="margin-top:8px">Most invalid candidates are stopped before any simulation</h2>
+    ${fun}
+    <p class="note" style="margin-top:10px">About half were corrupted on purpose (seed ${P.seed}). The geometry stage rejected ${c.geometry}: the generator's corruptions (stray vertex, zero-length crease, out-of-bounds tip) leave a degree-1 interior vertex, which the cheaper topology stage catches first. The geometry checks are covered by their own unit tests.</p></section>
+  <div class="grid g2" style="align-items:start">
+    <section class="card"><h2>Sample candidates</h2>
+      <div class="chips" style="margin:10px 0 12px" role="group" aria-label="Filter">${fl.map(([k,l])=>`<button class="chip" data-f="${k}" aria-pressed="${flt===k}">${l}</button>`).join('')}</div>
+      <div class="gallery">${vis.map(({s,i})=>`<button class="thumb" data-c="${i}" aria-pressed="${i===S.cand}">${creaseSVG(s.pattern,'Candidate '+(i+1))}<span class="st ${s.passed?'pass':'fail'}">${s.passed?'✓ passes':'✕ '+s.stage}</span></button>`).join('')||'<p class="muted">No samples match this filter.</p>'}</div>
+      <p class="faint" style="margin-top:10px;font-size:12px">First ${sm.length} of the ${n}.</p></section>
+    <section class="card" style="position:sticky;top:8px"><h2>${sel?`Candidate ${S.cand+1}`:'Candidate'}</h2>
+      ${sel?`<div style="max-width:300px;margin:10px 0">${creaseSVG(sel.pattern,'Selected candidate')}</div>${keyHTML}
+      <p style="margin-top:12px"><span class="pill ${sel.passed?'pass':'fail'}">${sel.passed?'PASS all stages':'FAIL at '+sel.stage}</span></p>
+      <p class="muted" style="margin-top:10px">${esc(sel.why)}</p>`:'<p class="muted">Nothing selected.</p>'}</section>
+  </div></div>`;
+}
+
+function vDesigns(){
+  const B=D.targets[S.target],E=A(S.target,'origen'),K=B.constraints;
+  const mk=K.maekawa_results[0],kw=K.kawasaki_results[0];
+  const st=['topology','geometry','maekawa','kawasaki'].map(k=>{
+    const ok=!(K.failed_stages||[]).includes(k);return `<span class="pill ${ok?'pass':'fail'}">${ok?'✓':'✕'} ${k} ${ok?'PASS':'FAIL'}</span>`}).join(' ');
+  if(S.fold===null)S.fold=B.fold_amounts.indexOf(B.best_fold_amount);
+  return `<div class="stack">
+  <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between">${targetPicker()}<span class="faint" style="font-size:12.5px">Best of ${D.parameters.n_trials} ORIGEN trials · seed ${B.seed} · re-run and verified identical</span></div>
+  <div class="grid g2" style="align-items:start">
+    <section class="card"><h2>Crease pattern</h2><p class="muted">${esc(B.description)}</p>
+      <div style="max-width:380px;margin:12px 0">${creaseSVG(B.pattern,'Best crease pattern for '+TNAME[S.target])}</div>${keyHTML}
+      <dl class="kv"><dt>Creases</dt><dd>${B.pattern.creases.length} at one hub vertex</dd><dt>Shape similarity</dt><dd>${f(B.similarity,4)} <span class="faint">(1 / (1 + Chamfer ${f(B.chamfer,3)}))</span></dd><dt>Fold amount</dt><dd>${f(B.best_fold_amount,2)} of 1.00 chosen by the evaluator</dd></dl></section>
+    <section class="card"><h2>Folded approximation</h2>
+      <p class="muted">Dots are the target point cloud; coloured rods are the pattern's creases lifted out of the plane. Both are centred and scaled to unit RMS, as in the score. Drag to rotate.</p>
+      <div style="margin:10px 0"><canvas id="c3d" role="img" aria-label="3D view of the folded approximation against the target point cloud"></canvas></div>
+      <label for="fold" class="faint" style="font-size:12px">Fold amount <span id="foldv" class="mono"></span></label>
+      <input id="fold" type="range" min="0" max="${B.fold_amounts.length-1}" step="1" value="${S.fold}">
+      <div class="btns" style="margin-top:10px" id="views"><button class="btn" data-v="top">Top</button><button class="btn" data-v="ang">Angled</button><button class="btn" data-v="side">Side</button></div>
+      <p class="note" style="margin-top:12px">Simplified model: each crease is a rigid rod tilted up (mountain) or down (valley). It is not a rigid-origami simulation and does not check that a collision-free folding motion exists.</p></section>
+  </div>
+  <section class="card"><h2>Constraint report</h2><div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0">${st}</div>
+    <div class="grid g2"><div><h3>Maekawa at the hub</h3><dl class="kv"><dt>M / V</dt><dd>${mk.mountain_count} mountain · ${mk.valley_count} valley</dd><dt>|M − V|</dt><dd>${mk.difference} (needs 2)</dd></dl><p class="muted" style="margin-top:8px;font-size:12.5px">${esc(mk.explanation)}</p></div>
+    <div><h3>Kawasaki at the hub</h3><dl class="kv"><dt>Sectors</dt><dd>${kw.sector_angles_deg.map(a=>f(a,1)+'°').join(' · ')}</dd><dt>Alternating sums</dt><dd>${f(kw.odd_sum_deg,3)}° vs ${f(kw.even_sum_deg,3)}°</dd><dt>Error</dt><dd>${kw.error_deg<1e-9?'< 1e-9':f(kw.error_deg,9)}° (tolerance ${kw.tolerance_deg.toExponential(1)}°)</dd></dl><p class="muted" style="margin-top:8px;font-size:12.5px">${esc(kw.explanation)}</p></div></div>
+    <p class="note" style="margin-top:12px">Passing these checks means the hub satisfies two necessary conditions. It does not establish physical foldability.</p></section>
+  </div>`;
+}
+
+function vExperiment(){
+  const P=D.parameters,T=S.target,X=D.experiment[T],p=X.paired_vs_guided;
+  const cols=[['n_generated','Generated',0],['n_rejected_total','Rejected',1],['n_shape_evaluations','Shape evals',1],['runtime_s','Runtime (s)',2],['valid_discovery_rate','Valid rate',3],['invalid_avoided_pct','Invalid avoided %',0],['best_similarity','Best similarity',4],['iterations_to_best','Iters to best',0]];
+  const rows=METHODS.map(([m,name,c])=>`<tr><td><span class="sw" style="background:var(${c})"></span>${name}</td>${cols.map(([k,,d])=>{const a=X[m].aggregate[k];return `<td>${f(a.mean,d)} <span class="faint">±${f(a.std,d)}</span></td>`}).join('')}</tr>`).join('');
+  const bars=(k,title,d,sfx='')=>{const mx=Math.max(...METHODS.map(([m])=>X[m].aggregate[k].mean));
+    return `<div><h3>${title}</h3>${METHODS.map(([m,name,c])=>{const v=X[m].aggregate[k].mean;return `<div class="row" data-tip="${esc(name)}: ${f(v,d)}${sfx} (±${f(X[m].aggregate[k].std,d)})"><span style="font-size:12px">${name.split(':')[0].split(' (')[0]}</span><div class="track"><div class="fill" style="width:${v/mx*100}%;background:var(${c})"></div></div><span class="v">${f(v,d)}${sfx}</span></div>`}).join('')}</div>`};
+  return `<div class="stack">
+  <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between">${targetPicker()}<span class="faint" style="font-size:12.5px">${P.n_trials} trials · ${P.n_iterations} iterations · seeds ${P.seed0}–${P.seed0+P.n_trials-1}</span></div>
+  <section class="card"><h2>${TNAME[T]}: means over ${P.n_trials} trials</h2><div class="tw" style="margin-top:10px"><table><thead><tr><th>Method</th>${cols.map(c=>`<th>${c[1]}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="note" style="margin-top:10px">Paired against the shape-guided baseline on best similarity: ORIGEN higher in <b>${p.origen_better}</b>, tied in <b>${p.tie}</b>, lower in <b>${p.origen_worse}</b> of ${P.n_trials} seeds. The control follows ORIGEN's exact trajectory (same seeds, same scores), so it differs only in cost. That match is a check that the baseline code is wired correctly.</p></section>
+  <div class="grid g2">
+    <section class="card"><h2>Best similarity per iteration</h2><p class="muted">Mean over trials. ORIGEN and the control overlap exactly.</p><div class="lg" id="lg1"></div><div class="chart" id="ch1"></div></section>
+    <section class="card"><h2>Best similarity per shape evaluation</h2><p class="muted">Same runs, x-axis counts expensive evaluations instead of iterations.</p><div class="lg" id="lg2"></div><div class="chart" id="ch2"></div></section>
+  </div>
+  <section class="card"><div class="grid g3">${bars('n_shape_evaluations','Shape evaluations per run',1)}${bars('runtime_s','Runtime per run',2,' s')}${bars('valid_discovery_rate','Candidates passing all checks',3)}</div></section>
+  <section class="card"><h3>Recorded parameters</h3><dl class="kv"><dt>Annealing</dt><dd>temperature ${P.temperature}, Kawasaki tolerance ${P.kawasaki_tolerance} rad</dd><dt>Environment</dt><dd>Python ${P.python}, NumPy ${P.numpy}</dd><dt>Wall time</dt><dd>${f(P.total_wall_time_s,0)} s for ${P.n_trials*TARGETS.length*3} searches</dd><dt>Baseline</dt><dd>Shape quality is the only objective; validity is checked afterwards and only valid designs count as results.</dd></dl></section>
+  </div>`;
+}
+function mountExperiment(){
+  const T=S.target,X=D.experiment[T];
+  const legend=h=>$(h).innerHTML=METHODS.map(([,n,c,d])=>`<span><i style="border-color:var(${c});${d?'border-top-style:dashed':''}"></i>${n}</span>`).join('');
+  legend('#lg1');legend('#lg2');
+  const mkS=(xfn,xdec)=>METHODS.map(([m,name,c,d])=>{const y=X[m].sim_curve;return {name,short:m==='origen'?'ORIGEN':m==='baseline_guided'?'Baseline':'Control',color:cv(c),dash:d,x:xfn(m,y),y}});
+  lineChart($('#ch1'),{series:mkS((m,y)=>y.map((_,i)=>i)),xlabel:'Iteration',xname:'iter',ylabel:'Best valid similarity',endLabels:true,aria:'Best valid similarity versus iteration'});
+  lineChart($('#ch2'),{series:mkS(m=>X[m].evals_curve),xlabel:'Cumulative shape evaluations',xname:'evals',xdec:1,ylabel:'Best valid similarity',endLabels:true,aria:'Best valid similarity versus shape evaluations'});
+  document.querySelectorAll('[data-tip]').forEach(r=>{r.onpointermove=e=>showTip(r.dataset.tip,e);r.onpointerleave=hideTip});
+}
+
+function vMethod(){
+  return `<div class="stack"><div class="grid g2" style="align-items:start">
+  <section class="card"><h2>Try the two theorems</h2>
+    <h3 style="margin-top:12px">Maekawa: |M − V| = 2</h3>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px"><label>M <input id="mM" type="number" min="0" value="3"></label><label>V <input id="mV" type="number" min="0" value="1"></label><span id="mOut"></span></div>
+    <h3 style="margin-top:18px">Kawasaki: A + C = B + D (degrees)</h3>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px">${['A','B','C','D'].map((l,i)=>`<label>${l} <input id="k${l}" type="number" value="${[70,95,110,85][i]}"></label>`).join('')}</div>
+    <div style="margin-top:10px" id="kOut"></div>
+    <p class="note" style="margin-top:12px">Same arithmetic as <code>constraints/maekawa.py</code> and <code>kawasaki.py</code> (tolerance 1e-6 rad). A PASS here is a necessary condition only.</p></section>
+  <section class="card"><h2>Implemented vs simplified</h2>
+    <ul class="clean"><li><b>Implemented:</b> crease graph, Maekawa, Kawasaki (any even degree), topology and geometry checks, early-rejecting engine, candidate generator, seeded stochastic search, two baselines, metrics, 25 unit tests.</li>
+    <li><b>Simplified:</b> fold evaluation is a rod model for single-hub patterns. One global fold amount, no panels, no collision or layer-order checks.</li>
+    <li><b>Simplified:</b> candidates are single-hub stars on a square sheet. Multi-vertex patterns are not generated yet.</li>
+    <li><b>Not implemented:</b> GNN or learned scoring, physical or thickness-aware simulation, arbitrary 3D targets.</li></ul></section></div>
+  <section class="card"><h2>Limitations</h2><ul class="clean">
+    <li>Maekawa and Kawasaki are necessary conditions at one vertex. They do not guarantee global flat-foldability.</li>
+    <li>The benefit of early rejection is measured against a cheap evaluator, so runtime savings are modest here and would grow with a costly simulator.</li>
+    <li>Results come from 20 seeds per target and one annealing temperature. No significance test or parameter sweep was run.</li>
+    <li>Similarity scores compare against simple point clouds after normalisation, so they say little about absolute geometric accuracy.</li></ul></section>
+  <section class="card"><h2>Run it yourself</h2>
+    <pre>cd origen
+python3 -m unittest discover -s tests
+python3 -m experiments.origen_experiment --trials 20 --iterations 200
+python3 experiments/export_dashboard_data.py
+python3 visualization/build_project_screen.py</pre>
+    <p class="muted" style="margin-top:10px"><code>app.py</code> is a Streamlit version of the interface. Streamlit could not be installed in this sandbox, so that file has not been run.</p></section></div>`;
+}
+function mountMethod(){
+  const m=()=>{const M=+$('#mM').value,V=+$('#mV').value,ok=(M+V>0)&&Math.abs(M-V)===2;$('#mOut').innerHTML=`<span class="pill ${ok?'pass':'fail'}">${ok?'PASS':'FAIL'} · |M−V| = ${Math.abs(M-V)}</span>`};
+  const k=()=>{const [a,b,c,d]=['A','B','C','D'].map(l=>+$('#k'+l).value),e=Math.abs(a+c-b-d),ok=e<=1e-6*180/Math.PI,s=a+b+c+d;
+    $('#kOut').innerHTML=`<span class="pill ${ok?'pass':'fail'}">${ok?'PASS':'FAIL'} · A+C = ${f(a+c,3)}, B+D = ${f(b+d,3)}, error ${e.toExponential(2)}°</span>${Math.abs(s-360)>1e-3?`<p class="faint" style="font-size:12px;margin-top:6px">Sectors sum to ${f(s,2)}°, not 360°.</p>`:''}`};
+  ['mM','mV'].forEach(i=>$('#'+i).oninput=m);['kA','kB','kC','kD'].forEach(i=>$('#'+i).oninput=k);m();k();
+}
+
+/* ---------- 3D canvas ---------- */
+function norm3(B,fi){
+  const hub=[B.hub_xy[0],B.hub_xy[1],0],rays=B.frames[fi],all=[hub];rays.forEach(r=>r.forEach(p=>all.push(p)));
+  const c=[0,1,2].map(i=>mean(all.map(p=>p[i]))),rms=Math.sqrt(mean(all.map(p=>(p[0]-c[0])**2+(p[1]-c[1])**2+(p[2]-c[2])**2)))||1;
+  const n=p=>[(p[0]-c[0])/rms,(p[1]-c[1])/rms,(p[2]-c[2])/rms];
+  return {hub:n(hub),rays:rays.map(r=>r.map(n))};
+}
+function normCloud(pts){const c=[0,1,2].map(i=>mean(pts.map(p=>p[i]))),rms=Math.sqrt(mean(pts.map(p=>(p[0]-c[0])**2+(p[1]-c[1])**2+(p[2]-c[2])**2)))||1;return pts.map(p=>[(p[0]-c[0])/rms,(p[1]-c[1])/rms,(p[2]-c[2])/rms])}
+function mount3D(){
+  const B=D.targets[S.target],cv3=$('#c3d'),ctx=cv3.getContext('2d'),tgt=normCloud(B.target_points);
+  const draw=()=>{
+    const dpr=window.devicePixelRatio||1,w=cv3.clientWidth,h=cv3.clientHeight;cv3.width=w*dpr;cv3.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
+    const sc=Math.min(w,h)/2/2.4,cy=Math.cos(S.yaw),sy=Math.sin(S.yaw),cp=Math.cos(S.pitch),sp=Math.sin(S.pitch);
+    const P=p=>{const x1=p[0]*cy-p[1]*sy,y1=p[0]*sy+p[1]*cy,y2=y1*cp-p[2]*sp;return [w/2+x1*sc,h/2-y2*sc]};
+    ctx.fillStyle=cv('--ink3');ctx.globalAlpha=.55;tgt.forEach(p=>{const [x,y]=P(p);ctx.beginPath();ctx.arc(x,y,2.2,0,6.283);ctx.fill()});ctx.globalAlpha=1;
+    const F=norm3(B,S.fold);
+    F.rays.forEach((r,i)=>{const col=cv(B.ray_assignments[i]==='M'?'--m':'--v');ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=2.4;ctx.lineCap='round';
+      ctx.beginPath();let [x,y]=P(F.hub);ctx.moveTo(x,y);r.forEach(p=>{[x,y]=P(p);ctx.lineTo(x,y)});ctx.stroke();
+      r.forEach(p=>{[x,y]=P(p);ctx.beginPath();ctx.arc(x,y,2.6,0,6.283);ctx.fill()})});
+    const [hx,hy]=P(F.hub);ctx.fillStyle=cv('--ink');ctx.beginPath();ctx.arc(hx,hy,4,0,6.283);ctx.fill();
+  };
+  const upd=()=>{$('#foldv').textContent=`${f(B.fold_amounts[S.fold],2)}${S.fold===B.fold_amounts.indexOf(B.best_fold_amount)?' · evaluator’s best':''}`;draw()};
+  $('#fold').oninput=e=>{S.fold=+e.target.value;upd()};
+  let drag=null;
+  cv3.onpointerdown=e=>{drag=[e.clientX,e.clientY,S.yaw,S.pitch];cv3.setPointerCapture(e.pointerId);cv3.style.cursor='grabbing'};
+  cv3.onpointermove=e=>{if(!drag)return;S.yaw=drag[2]+(e.clientX-drag[0])*.01;S.pitch=Math.max(0,Math.min(1.5708,drag[3]+(e.clientY-drag[1])*.01));draw()};
+  cv3.onpointerup=()=>{drag=null;cv3.style.cursor='grab'};
+  document.querySelectorAll('#views .btn').forEach(b=>b.onclick=()=>{const v=b.dataset.v;S.pitch=v==='top'?0:v==='side'?1.5708:1.0;S.yaw=v==='top'?0:-0.7;draw()});
+  if(cv3._ro)cv3._ro.disconnect();cv3._ro=new ResizeObserver(draw);cv3._ro.observe(cv3);
+  window._redraw3d=draw;upd();
+}
+
+/* ---------- shell ---------- */
+function render(){
+  $('#tabs').innerHTML=TABS.map(([k,l])=>`<button role="tab" data-tab="${k}" aria-selected="${k===S.tab}">${l}</button>`).join('');
+  document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{location.hash=b.dataset.tab});
+  const V={overview:vOverview,candidates:vCandidates,designs:vDesigns,experiment:vExperiment,method:vMethod}[S.tab];
+  $('#view').innerHTML=V();hideTip();
+  bindTargetPicker();
+  if(S.tab==='candidates'){document.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{S.filter=b.dataset.f;render()});document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{S.cand=+b.dataset.c;render()})}
+  if(S.tab==='designs')mount3D();
+  if(S.tab==='experiment')mountExperiment();
+  if(S.tab==='method')mountMethod();
+}
+function route(){const h=(location.hash||'').slice(1);S.tab=TABS.some(t=>t[0]===h)?h:'overview';render()}
+$('#badges').innerHTML=`<span class="badge ${D.tests.ok?'ok':'warn'}">${D.tests.ok?'25 unit tests pass':'tests failing'}</span><span class="badge">${D.parameters.n_trials} trials × ${D.parameters.n_iterations} iterations</span><span class="badge warn">fold model simplified</span>`;
+addEventListener('hashchange',route);
+new MutationObserver(()=>{if(window._redraw3d&&S.tab==='designs')window._redraw3d();if(S.tab==='experiment')mountExperiment()}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{if(S.tab==='designs'&&window._redraw3d)window._redraw3d();if(S.tab==='experiment')mountExperiment()});
+route();
+</script>
